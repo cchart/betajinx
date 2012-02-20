@@ -1,0 +1,16 @@
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/ROSBUILD_genmsg_cpp.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/ROSBUILD_genmsg_lisp.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/ROSBUILD_gensrv_cpp.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/ROSBUILD_gensrv_lisp.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/clean-test-results.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/command_publisher.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/rosbuild_precompile.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/rosbuild_premsgsrvgen.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/rospack_genmsg.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/rospack_genmsg_libexe.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/rospack_gensrv.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/test.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/test-future.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/test-results.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/test-results-run.dir
+/home/albireo/code/dev_stacks/kaw_hw2_profiled/build/CMakeFiles/tests.dir
