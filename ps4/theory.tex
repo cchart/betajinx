@@ -1,0 +1,22 @@
+\documentclass[english]{article}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{babel}
+\begin{document}
+
+\title{EECS 476 Mobile Robotics Problem Set 4 Theory of Operation}
+
+\author{Steven Crilley, Charles Hart, Kan Jia, Kenneth Watka}
+
+\maketitle
+Our theory of operation for the handling of unexpected halting of
+robot motion is defined by two operating modes: normal operation mode
+and emergency stop mode. In normal operation mode, the robot continuously
+integrates inferred differential pose information to create an estimate
+of trajectory execution. This information is inferred from idealized
+estimates of progress in two-dimentional path space, where each path
+segment has a length and a type (turn in place, arc about a radius,
+and straight line). For each path segment a maximum velocity is specified,
+and a trapezoidal envelope is applied to the velocity curve, limiting
+acceleration to not exceed pre-specified values. 
+\end{document}
