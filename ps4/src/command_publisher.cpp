@@ -13,6 +13,14 @@
 #define omega_max 1.0
 #define alpha_max 0.5
 
+typedef{
+double x0,y0,x1,y1,segLength;
+}struct LinSeg;
+
+typedef{
+double desiredHeading,turnDegree;
+}struct RotSeg;
+
 bool estop;
 bool stopped;
 double dt = 0.02;
