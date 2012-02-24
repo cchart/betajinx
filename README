@@ -1,3 +1,7 @@
+<<<<<<< HEAD
 This is the development branch. 
+=======
+This is the Master branch
+>>>>>>> master
 
 Workflow goes Development -> Test -> Master

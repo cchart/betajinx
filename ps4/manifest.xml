@@ -1,0 +1,16 @@
+<package>
+  <description brief="kaw_hw2_profiled">
+
+     kaw_hw2_profiled
+
+  </description>
+  <author>Albireo</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/kaw_hw2_profiled</url>
+  <depend package="roscpp"/>
+  <depend package="cwru_sim_stage"/>
+
+</package>
+
+
