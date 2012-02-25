@@ -4,22 +4,23 @@
 #include<math.h>
 #include <cwru_base/Pose.h>
 #include<geometry_msgs/Twist.h> //data type for velocities
+#include<geometry_msgs/PoseWithCovarianceStamped.h>
 
 #define HALF_PI 1.67079633
 #define CW -1
-#define nap 50
+#define nap 2
 #define v_max 1.0
 #define a_max 0.25
 #define omega_max 1.0
 #define alpha_max 0.5
 
-typedef{
+struct LinSeg{
 double x0,y0,x1,y1,segLength;
-}struct LinSeg;
+};
 
-typedef{
+struct RotSeg{
 double desiredHeading,turnDegree;
-}struct RotSeg;
+};
 
 bool estop;
 bool stopped;
@@ -29,6 +30,7 @@ using namespace std;
 
 void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
 	cout << pose->x << " | " << pose->y << endl;
+	ROS_INFO("HELP");
 }
 
 void estopCallback(const std_msgs::Bool::ConstPtr& est) 
@@ -92,6 +94,7 @@ void runLinear(double segLength, ros::Publisher pub){
 	while (ros::ok() && segDistDone<segLength) // do work here
 	{
 		ros::spinOnce();
+		estop=true;
 		while(estop == false){
 			ros::spinOnce();
 			naptime.sleep();
@@ -186,6 +189,7 @@ void runInPlaceTurn(double segLength, double direction, ros::Publisher pub){
 	while (ros::ok() && segDistDone<segLength) // do work here
 	{
 		ros::spinOnce();
+		estop=true;
 		while(estop == false){
 			ros::spinOnce();
 			naptime.sleep();
