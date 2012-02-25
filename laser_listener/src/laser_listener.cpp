@@ -21,13 +21,17 @@ bool inDeBox(int theta, float r)
 {
 
     laser_listener::obstacle referenceMsg;
+    bool result = false;
 
-    //cout << "using box width: " << referenceMsg.boxWidth << endl;
-    //cout << "using box length: " << referenceMsg.boxLength << endl;
+    if((r*sin((theta*PI)/180.0))<0.1)//referenceMsg.boxLength)
+    {
+        if((r*cos((theta*PI)/180.0))<0.1)//(referenceMsg.boxWidth/2.0))
+        {
+            result = true;
+        }
+    }
 
-    //do some math here to find if a point lies in a box. uff.
-
-    return false;
+    return result;
 }
 
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
@@ -44,15 +48,21 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
           nearestTheta = i;
       }
 
-      //cout << inDeBox(i, laserScan->ranges[i]);
-      cout<<(laserScan->ranges[i]<0.75);
+      cout << inDeBox(i, laserScan->ranges[i]);
+      //cout<<(laserScan->ranges[i]<0.75); //primitive visualization of lazerz
 
+      if (inDeBox(i, laserScan->ranges[i]))
+      {
+          objectInRange = true;
+      }
+      /*
       if (laserScan->ranges[i]<0.75)
       {
           objectInRange = true;
       }
+      */
     }
-    nearestObstacle = shortestRange*sin((((180-nearestTheta)*PI)/180));
+    nearestObstacle = shortestRange*sin((((180-nearestTheta)*PI)/180.0));
     holla = true;
     cout<<endl;
 }
