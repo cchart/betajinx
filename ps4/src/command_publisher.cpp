@@ -17,6 +17,12 @@ bool estop;
 bool stopped;
 double dt = 0.02;
 
+using namespace std;
+
+void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
+	cout << pose->x << " | " << pose->y << endl;
+}
+
 void estopCallback(const std_msgs::Bool::ConstPtr& est) 
 {
 	if (est->data == true){
@@ -251,6 +257,8 @@ int main(int argc,char **argv)
 	ros::NodeHandle n;
 	ros::Publisher pub = n.advertise<geometry_msgs::Twist>("cmd_vel",1);
 	ros::Subscriber sub = n.subscribe("motors_enabled",1,estopCallback);
+	ros::Subscriber sub1 = n.subscribe("flipped_pose",1,poseCallback);
+
 	//"cmd_vel" is the topic name to publish velocity commands
 	//"1" is the buffer size (could use buffer>1 in case network bogs down)
 
