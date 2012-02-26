@@ -6,9 +6,9 @@
 #include <laser_listener/obstacle.h>
 #include<geometry_msgs/Twist.h> //data type for velocities
 
-#define HALF_PI 1.67079633
-#define CW -1
-#define nap 50
+#define HALF_PI 1.57079633
+#define CW -1.0
+#define nap 10
 #define v_max 1.0
 #define a_max 0.5
 #define omega_max 1.0
@@ -16,7 +16,7 @@
 
 bool estop;
 bool stopped;
-double dt = 0.02;
+double dt = 0.1;
 int obstacle;
 double segDistLeft;
 using namespace std;
@@ -292,6 +292,7 @@ void runInPlaceTurn(double segLength, double direction, ros::Publisher pub){
 			return;
 		}
 		omega_cmd = vel_object.angular.z;
+		vel_object.angular.z*=direction;
 
 		ROS_INFO("angular %f %f %f",vel_object.angular.x,vel_object.angular.y,vel_object.angular.z);
 		pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
