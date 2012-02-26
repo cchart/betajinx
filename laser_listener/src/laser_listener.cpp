@@ -30,8 +30,8 @@ bool inDeBox(int theta, float r)
     {
         if(abs(r*cos(theta*D2R))<(referenceMsg.boxWidth/2.0))
         {
-		cout << r*cos(theta*D2R) << endl;            
-		result = true;
+            cout << "front: " << r*sin(theta*D2R) << "side: " << r*cos(theta*D2R) << endl;            
+            result = true;
         }
     }
 
