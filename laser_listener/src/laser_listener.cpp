@@ -7,6 +7,7 @@
 
 #define HZ 100
 #define PI 3.141562653589
+#define D2R 0.0174532925
 
 using namespace std;
 float nearestObstacle;
@@ -23,11 +24,12 @@ bool inDeBox(int theta, float r)
     laser_listener::obstacle referenceMsg;
     bool result = false;
 
-    if((r*sin((theta*PI)/180.0))<0.1)//referenceMsg.boxLength)
+    if(abs(r*sin(theta*D2R))<referenceMsg.boxLength)
     {
-        if((r*cos((theta*PI)/180.0))<0.1)//(referenceMsg.boxWidth/2.0))
+        if(abs(r*cos(theta*D2R))<(referenceMsg.boxWidth/2.0))
         {
-            result = true;
+		cout << r*cos(theta*D2R) << endl;            
+		result = true;
         }
     }
 
@@ -48,7 +50,7 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
           nearestTheta = i;
       }
 
-      cout << inDeBox(i, laserScan->ranges[i]);
+      //cout << inDeBox(i, laserScan->ranges[i]);
       //cout<<(laserScan->ranges[i]<0.75); //primitive visualization of lazerz
 
       if (inDeBox(i, laserScan->ranges[i]))
