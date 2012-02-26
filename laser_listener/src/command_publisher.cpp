@@ -57,6 +57,8 @@ double max(double a, double b){
 	return b;
 }
 
+
+/* Obstacle detection = segType 4 */
 geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, double segDistDone, double segLength, double segType){
 	geometry_msgs::Twist velocity_cmd;
 	double T_accel, T_decel;
@@ -82,6 +84,12 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 		dist_deccel = 0.5*accel_max*T_accel*T_accel;
 		dist_const_v = segLength - dist_accel -dist_deccel;
 	}
+	/* Obstacle detected, Ramp down V to 0 */
+	else if (segType == 4) {
+		dist_accel = -999;
+		dist_deccel = 0.5*accel_max*T_accel*T_accel;
+		dist_const_v = -999;
+	}
 	else{ 
 		velocity_cmd.linear.y = -1;
 		return velocity_cmd;
@@ -94,7 +102,7 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 
 	time=time+dt;
 	segDistDone += ((v_past+v_cmd)/2)*dt;
-	
+	/*/ Accel Phase */	
 	if (segDistDone<dist_accel)
 	{
 		v_scheduled = sqrt(2*segDistDone*accel_max);
@@ -102,9 +110,11 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 			v_scheduled = accel_max*dt;
 		}
 	}
+	/* Constant V Phase */
 	else if (segDistDone<dist_accel+dist_const_v){
 		v_scheduled = velocity_max;
 	}
+	/* Decel Phase */
 	else{
 		temp = 2*(segLength-segDistDone)*accel_max;
 		if(temp<0){
@@ -193,12 +203,18 @@ void runLinear(double segLength, ros::Publisher pub){
 			naptime.sleep();
 			stopped = true;
 			ROS_INFO("CRAZY OBSTACLE DANCE");
-			 
+		
+			t = t + dt;
+			segDistDone += ((v_past+v_cmd)/2)*dt;
+			v_past = v_cmd;
+			/* Assume 1 meter to stop */
+			vel_object = getVelocity(t, v_past, v_cmd, segDistDone, 1, 4);	 
 			vel_object.linear.x = 0.0;
                         vel_object.angular.z = 0.0;
                         ROS_INFO("linear %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength);
                         pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
-
+			naptime.sleep();
+			
 		}
 				
 		if(stopped){
