@@ -7,7 +7,7 @@
 
 #define HZ 100
 #define PI 3.141562653589
-#define D2R 0.0174532925
+#define D2R 0.0174532925 //pi/180
 
 using namespace std;
 float nearestObstacle;
@@ -17,14 +17,16 @@ bool holla = false;
 
 // For using the LaserScan, see http://www.ros.org/doc/api/sensor_msgs/html/msg/LaserScan.html
 
-
+//inDeBox tells if a point at a given theta and radial distance from the laser 
+//lies in a rectrangular area infront of the robot, whose width and length are 
+//defined for fun in the 'obstacle' message 
 bool inDeBox(int theta, float r)
 {
 
-    laser_listener::obstacle referenceMsg;
+    laser_listener::obstacle referenceMsg; //this is used to get the constants from the message
     bool result = false;
 
-    if(abs(r*sin(theta*D2R))<referenceMsg.boxLength)
+    if(abs(r*sin(theta*D2R))<referenceMsg.boxLength) //abs() hack for negative values ...
     {
         if(abs(r*cos(theta*D2R))<(referenceMsg.boxWidth/2.0))
         {
@@ -64,7 +66,10 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
       }
       */
     }
-    nearestObstacle = shortestRange*sin((((180-nearestTheta)*PI)/180.0));
+    nearestObstacle = shortestRange*sin((((180-nearestTheta)*PI)/180.0)); 
+    //This is the braking distance for an obstacle in front of our track. 
+    //for large boxes and obstacles just barely in the box, but whose theta
+    //is large or small (0-10,170-180), stopping distance may be quite short.  
     holla = true;
     cout<<endl;
 }
