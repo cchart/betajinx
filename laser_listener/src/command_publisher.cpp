@@ -16,6 +16,7 @@
 
 bool estop;
 bool stopped;
+int OAM = 1;
 double dt = 0.1;
 int obstacle;
 double segDistLeft;
@@ -115,7 +116,9 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 		v_scheduled = velocity_max;
 	}
 	/* Decel Phase */
-	else{
+	else
+	{
+		ROS_INFO("DECEL PHASE HANDLING");
 		temp = 2*(segLength-segDistDone)*accel_max;
 		if(temp<0){
 			v_scheduled = 0.0;
@@ -183,6 +186,7 @@ void runLinear(double segLength, ros::Publisher pub){
 	double dist_deccel = dist_accel;
 	double dist_const_v = segLength - dist_accel -dist_deccel;
 	double v_scheduled, v_test,temp;
+	
 	if(dist_const_v<0){
 		dist_accel = segLength/2;
 		dist_deccel = dist_accel;
@@ -198,25 +202,9 @@ void runLinear(double segLength, ros::Publisher pub){
 			ROS_INFO("crazy dance");
 		}
 
-		while (obstacle == 1) {
-			ros::spinOnce();
-			naptime.sleep();
-			stopped = true;
-			ROS_INFO("CRAZY OBSTACLE DANCE");
-		
-			t = t + dt;
-			segDistDone += ((v_past+v_cmd)/2)*dt;
-			v_past = v_cmd;
-			/* Assume 1 meter to stop */
-			vel_object = getVelocity(t, v_past, v_cmd, segDistDone, 1, 4);	 
-			vel_object.linear.x = 0.0;
-                        vel_object.angular.z = 0.0;
-                        ROS_INFO("linear %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength);
-                        pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
-			naptime.sleep();
-			
-		}
-				
+		if (obstacle == 1) { segDistDone = 0; OAM = 0; }
+		else { OAM = 1; }
+
 		if(stopped){
 			holdingPattern(1,pub);
 			stopped=false;
@@ -234,23 +222,37 @@ void runLinear(double segLength, ros::Publisher pub){
 			temp=0;
 		}
 
+		ROS_INFO("OAM::: " + OAM);
+		if (OAM == 0) {
+                        ROS_INFO("CRAZY OBSTACLE DANCE");
+                        t = t + dt;
+                        segDistDone += ((v_past+v_cmd)/2)*dt;
+                        v_past = v_cmd;
+                        /* Assume 1 meter to stop */
+                        vel_object = getVelocity(t, v_past, v_cmd, segDistDone, 1, 4);
+                        ROS_INFO("OBSTACLE SENDING VELOCITY");
+                        ROS_INFO("linear %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength);
+                        pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
+			naptime.sleep();
 
-		t=t+dt;
-		segDistDone += ((v_past+v_cmd)/2)*dt;
-		v_past = v_cmd;
+		} else {
+			t=t+dt;
+			segDistDone += ((v_past+v_cmd)/2)*dt;
+			v_past = v_cmd;
 
-		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
-		if(vel_object.linear.y==-1){
-			ROS_INFO("We had a bad segType");
-			return;
-		}
-		v_cmd = vel_object.linear.x;		
-	
-		ROS_INFO("linear %f %f %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength,segDistDone,t);
-		pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
+			vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
+			if(vel_object.linear.y==-1){
+				ROS_INFO("We had a bad segType");
+				return;
+			}
+			v_cmd = vel_object.linear.x;		
+			ROS_INFO("NORMAL VELOCITY COMMAND");
+			ROS_INFO("linear %f %f %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength,segDistDone,t);
+			pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
 		
-		naptime.sleep(); // this will cause the loop to sleep for balance of time of desired (50ms) period
+			naptime.sleep(); // this will cause the loop to sleep for balance of time of desired (50ms) period
 		//thus enforcing that we achieve the desired update rate (20Hz)
+		}
 	}
 	return;
 }
