@@ -10,16 +10,17 @@
 #define CW -1.0
 #define nap 10
 #define v_max 1.0
-#define a_max 0.5
+#define a_max 1
 #define omega_max 1.0
 #define alpha_max 0.5
 
 bool estop;
 bool stopped;
-int OAM = 1;
 double dt = 0.1;
-int obstacle;
+bool obstacle;
 double segDistLeft;
+double OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub);
+
 using namespace std;
 
 void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
@@ -27,11 +28,13 @@ void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
 }
 
 void obstructionsCallback(const laser_listener::obstacle::ConstPtr& obs) {
-	if(obs->nearestObstacle < segDistLeft){
+/*	if(obs->nearestObstacle < segDistLeft){
 		obstacle = obs->obstacle;
 	}
 	else{obstacle=0;}
-	ROS_INFO("OBSTACLE %d", obs->obstacle);
+*/
+	if (obs->obstacle == 1) { ROS_INFO("OBSTACLE CALLBACK: DETECTED "); obstacle = true; }
+	else { obstacle = false;}
 }
 
 void estopCallback(const std_msgs::Bool::ConstPtr& est) 
@@ -87,9 +90,9 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 	}
 	/* Obstacle detected, Ramp down V to 0 */
 	else if (segType == 4) {
-		dist_accel = -999;
+		dist_accel = 0;
 		dist_deccel = 0.5*accel_max*T_accel*T_accel;
-		dist_const_v = -999;
+		dist_const_v = 0;
 	}
 	else{ 
 		velocity_cmd.linear.y = -1;
@@ -119,29 +122,39 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 	else
 	{
 		ROS_INFO("DECEL PHASE HANDLING");
+		ROS_INFO("DECEL (SEGLENGTH - DISTDONE) = %f", (segLength - segDistDone));
 		temp = 2*(segLength-segDistDone)*accel_max;
+		ROS_INFO("DECEL TEMP: %f", temp);
 		if(temp<0){
 			v_scheduled = 0.0;
 		}
 		else{
 			v_scheduled = sqrt(temp);
 		}
+
+		ROS_INFO("V_SCHEDULED = %f", v_scheduled);
 	}
 
 	if (v_cmd < v_scheduled){
+		ROS_INFO("V_CMD < V_SCHEDULED");
 		v_test=v_cmd+accel_max*dt;
 		v_cmd = min(v_test,v_scheduled);
 	}
 	else if (v_cmd > v_scheduled){
+		ROS_INFO("V_CMD > V_SCHEDULED");
 		v_test = v_cmd-1.2*accel_max*dt;
 		v_cmd = max(v_test,v_scheduled);
 	}
 	else{
+		ROS_INFO("ELSE ");
 		v_cmd=v_scheduled;
 	}
 	if(v_cmd>velocity_max){
+		ROS_INFO ("V_CMD > VELOCITY MAX");
 		v_cmd = velocity_max;
 	}
+
+	ROS_INFO("V-CMD == %f", v_cmd);
 
 	if(segType==1){	
 		velocity_cmd.linear.x = v_cmd;
@@ -153,6 +166,11 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 		velocity_cmd.angular.z = v_cmd;
 		return velocity_cmd;
 	}
+	else if (segType == 4) {
+		velocity_cmd.linear.x = v_cmd;
+		velocity_cmd.angular.z = 0.0;
+		return velocity_cmd;
+	}
 	velocity_cmd.linear.y = -1;
 	return velocity_cmd;
 }
@@ -162,7 +180,7 @@ void holdingPattern(double time, ros::Publisher pub){
 	ros::Rate naptime(nap);
 	geometry_msgs::Twist vel_object;
 	while(ros::ok() && t<time){
-		t=t+dt;
+		t=t+dt;	
 		vel_object.linear.x = 0.0;
 		vel_object.angular.z = 0.0;
 		ROS_INFO("standing %f %f", t, dt);
@@ -186,6 +204,7 @@ void runLinear(double segLength, ros::Publisher pub){
 	double dist_deccel = dist_accel;
 	double dist_const_v = segLength - dist_accel -dist_deccel;
 	double v_scheduled, v_test,temp;
+	double goalSegLength = segLength;
 	
 	if(dist_const_v<0){
 		dist_accel = segLength/2;
@@ -201,9 +220,6 @@ void runLinear(double segLength, ros::Publisher pub){
 			stopped=true;
 			ROS_INFO("crazy dance");
 		}
-
-		if (obstacle == 1) { segDistDone = 0; OAM = 0; }
-		else { OAM = 1; }
 
 		if(stopped){
 			holdingPattern(1,pub);
@@ -222,39 +238,72 @@ void runLinear(double segLength, ros::Publisher pub){
 			temp=0;
 		}
 
-		ROS_INFO("OAM::: " + OAM);
-		if (OAM == 0) {
-                        ROS_INFO("CRAZY OBSTACLE DANCE");
-                        t = t + dt;
-                        segDistDone += ((v_past+v_cmd)/2)*dt;
-                        v_past = v_cmd;
-                        /* Assume 1 meter to stop */
-                        vel_object = getVelocity(t, v_past, v_cmd, segDistDone, 1, 4);
-                        ROS_INFO("OBSTACLE SENDING VELOCITY");
-                        ROS_INFO("linear %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength);
-                        pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
-			naptime.sleep();
-
-		} else {
-			t=t+dt;
-			segDistDone += ((v_past+v_cmd)/2)*dt;
-			v_past = v_cmd;
-
-			vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
-			if(vel_object.linear.y==-1){
-				ROS_INFO("We had a bad segType");
-				return;
-			}
-			v_cmd = vel_object.linear.x;		
-			ROS_INFO("NORMAL VELOCITY COMMAND");
-			ROS_INFO("linear %f %f %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength,segDistDone,t);
-			pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
-		
-			naptime.sleep(); // this will cause the loop to sleep for balance of time of desired (50ms) period
-		//thus enforcing that we achieve the desired update rate (20Hz)
+		if (obstacle) {
+			// Grab current segDistDone and segLength
+			segDistDone = OAM(segLength, segDistDone, v_cmd, v_past, pub);
+			return;
 		}
+
+		t=t+dt;
+		segDistDone += ((v_past+v_cmd)/2)*dt;
+		v_past = v_cmd;
+
+		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
+		if(vel_object.linear.y==-1){
+			ROS_INFO("We had a bad segType");
+			return;
+		}
+		v_cmd = vel_object.linear.x;		
+		ROS_INFO("NORMAL VELOCITY COMMAND");
+		ROS_INFO("linear %f %f %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength,segDistDone,t);
+		pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
+	
+		naptime.sleep(); // this will cause the loop to sleep for balance of time of desired (50ms) period
+		//thus enforcing that we achieve the desired update rate (20Hz)
+		
 	}
 	return;
+}
+
+double OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub) {
+	geometry_msgs::Twist vel_object;
+	ros::Rate naptime(nap);
+	double t=0;
+	double T_accel = v_max/a_max;
+	double dist_accel= 0.5*a_max*T_accel*T_accel;
+	double dist_deccel = dist_accel;
+	double dist_const_v = segLength - dist_accel -dist_deccel;
+	double v_scheduled, v_test,temp;
+	double goalSegLength = segLength;
+	segLength = segDistDone + 1;
+	
+	if(dist_const_v<0){
+		dist_accel = segLength/2;
+		dist_deccel = dist_accel;
+	}
+	
+	while (obstacle) {
+		ros::spinOnce();
+		t = t+dt;
+		segDistDone += ((v_past+v_cmd)/2)*dt;
+		v_past = v_cmd;
+		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
+		if(vel_object.linear.y==-1){
+			ROS_INFO("We had a bad segType");
+			return goalSegLength - segLength;
+		}
+		v_cmd = vel_object.linear.x;	
+		ROS_INFO("OBSTACLE V: %f DIST DONE: %f DIST LENGTH %f", v_cmd, segDistDone, segLength);	
+		pub.publish(vel_object);
+		naptime.sleep();
+	}
+
+	double restOfSeg = goalSegLength - segLength;
+	ROS_INFO("EXITING OAM.  REST OF SEG = %f", restOfSeg);
+	runLinear(restOfSeg, pub);
+
+	return goalSegLength - segLength;
+	
 }
 
 void runInPlaceTurn(double segLength, double direction, ros::Publisher pub){
@@ -339,12 +388,12 @@ int main(int argc,char **argv)
 
 	holdingPattern(0.5,pub);
 
-	runLinear(3,pub);
-	holdingPattern(0.2,pub);
-
-	runInPlaceTurn(HALF_PI,CW,pub);
+	runLinear(5,pub);
 	holdingPattern(0.2,pub);
 /*
+	runInPlaceTurn(HALF_PI,CW,pub);
+	holdingPattern(0.2,pub);
+
 	runLinear(12.5,pub);
 	holdingPattern(0.2,pub);
 
