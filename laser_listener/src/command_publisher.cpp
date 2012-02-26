@@ -19,8 +19,9 @@ bool stopped;
 double dt = 0.1;
 bool obstacle;
 double segDistLeft;
-double OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub);
-
+/* Obstacle Avoidance Mode, E-Stop Mode */
+void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub);
+void ESM(double segLength, double segDistDone, ros::Publisher pub);
 using namespace std;
 
 void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
@@ -214,33 +215,15 @@ void runLinear(double segLength, ros::Publisher pub){
 	while (ros::ok() && segDistDone<segLength) // do work here
 	{
 		ros::spinOnce();
-		while(estop == false){
-			ros::spinOnce();
-			naptime.sleep();
-			stopped=true;
-			ROS_INFO("crazy dance");
-		}
 
-		if(stopped){
-			holdingPattern(1,pub);
-			stopped=false;
-			t=0;
-			segLength = segLength - segDistDone;
-			segDistDone=0;
-			v_cmd = 0;
-			v_past=0;
-			T_accel = v_max/a_max;
-			dist_accel= 0.5*a_max*T_accel*T_accel;
-			dist_deccel = dist_accel;
-			dist_const_v = segLength - dist_accel -dist_deccel;
-			v_scheduled=0;
-			v_test=0;
-			temp=0;
+		if (estop == false) {
+			ESM(segLength, segDistDone, pub);
+			return;
 		}
 
 		if (obstacle) {
 			// Grab current segDistDone and segLength
-			segDistDone = OAM(segLength, segDistDone, v_cmd, v_past, pub);
+			OAM(segLength, segDistDone, v_cmd, v_past, pub);
 			return;
 		}
 
@@ -265,7 +248,27 @@ void runLinear(double segLength, ros::Publisher pub){
 	return;
 }
 
-double OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub) {
+void ESM(double segLength, double segDistDone, ros::Publisher pub) {
+	geometry_msgs::Twist vel_object;
+	ros::Rate naptime(nap);
+	vel_object.linear.x = 0.0;
+	vel_object.linear.y = 0.0;
+	vel_object.linear.z = 0.0;
+	vel_object.angular.z = 0.0;
+	while (!estop) {
+		ros::spinOnce();
+		// Publish 0.
+		pub.publish(vel_object); 
+		naptime.sleep();
+		ROS_INFO("ESTOP ENFORCED");
+	}
+
+	holdingPattern(1, pub);
+	segLength = segLength - segDistDone;
+	runLinear(segLength, pub);
+}	
+
+void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub) {
 	geometry_msgs::Twist vel_object;
 	ros::Rate naptime(nap);
 	double t=0;
@@ -284,13 +287,18 @@ double OAM(double segLength, double segDistDone, double v_cmd, double v_past, ro
 	
 	while (obstacle) {
 		ros::spinOnce();
+		if (!estop) {
+			// completed so far
+			ESM(goalSegLength, segDistDone, pub);
+			return;
+		}
 		t = t+dt;
 		segDistDone += ((v_past+v_cmd)/2)*dt;
 		v_past = v_cmd;
 		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
 		if(vel_object.linear.y==-1){
 			ROS_INFO("We had a bad segType");
-			return goalSegLength - segLength;
+			return;
 		}
 		v_cmd = vel_object.linear.x;	
 		ROS_INFO("OBSTACLE V: %f DIST DONE: %f DIST LENGTH %f", v_cmd, segDistDone, segLength);	
@@ -302,7 +310,7 @@ double OAM(double segLength, double segDistDone, double v_cmd, double v_past, ro
 	ROS_INFO("EXITING OAM.  REST OF SEG = %f", restOfSeg);
 	runLinear(restOfSeg, pub);
 
-	return goalSegLength - segLength;
+	return;
 	
 }
 
@@ -401,7 +409,7 @@ int main(int argc,char **argv)
 	holdingPattern(0.2,pub);
 
 	runLinear(4,pub);
-	holdingPattern(0.05,pub);
-*/	
+	holdingPattern(0.05,pub); 
+*/
 	return 0;
 }
