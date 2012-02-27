@@ -6,22 +6,25 @@
 #include <laser_listener/obstacle.h>
 #include<geometry_msgs/Twist.h> //data type for velocities
 
-#define HALF_PI 1.57079633
+#define HALF_PI 1.67079633
 #define CW -1.0
-#define nap 10
-#define v_max 1.0
-#define a_max 1
+#define nap 20
+#define v_max 0.5
 #define omega_max 1.0
 #define alpha_max 0.5
 
+double a_max = 0.5;
 bool estop;
 bool stopped;
-double dt = 0.1;
+double dt = 0.05;
 bool obstacle;
+double nearestObstacle = 0.0;
 double segDistLeft;
 /* Obstacle Avoidance Mode, E-Stop Mode */
 void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub);
 void ESM(double segLength, double segDistDone, ros::Publisher pub);
+void runInPlaceTurn(double segLength, double direction, ros::Publisher pub);
+void ESMTurnInPlace(double segLength, double segDistDone,double direction, ros::Publisher pub);
 using namespace std;
 
 void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
@@ -34,7 +37,11 @@ void obstructionsCallback(const laser_listener::obstacle::ConstPtr& obs) {
 	}
 	else{obstacle=0;}
 */
-	if (obs->obstacle == 1) { ROS_INFO("OBSTACLE CALLBACK: DETECTED "); obstacle = true; }
+	if (obs->obstacle == 1) { 
+			ROS_INFO("OBSTACLE CALLBACK: DETECTED "); 
+			obstacle = true; 
+			nearestObstacle = obs->nearestObstacle;
+	}
 	else { obstacle = false;}
 }
 
@@ -271,6 +278,7 @@ void ESM(double segLength, double segDistDone, ros::Publisher pub) {
 void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub) {
 	geometry_msgs::Twist vel_object;
 	ros::Rate naptime(nap);
+	a_max = 1.0;
 	double t=0;
 	double T_accel = v_max/a_max;
 	double dist_accel= 0.5*a_max*T_accel*T_accel;
@@ -278,7 +286,7 @@ void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros:
 	double dist_const_v = segLength - dist_accel -dist_deccel;
 	double v_scheduled, v_test,temp;
 	double goalSegLength = segLength;
-	segLength = segDistDone + 1;
+	segLength = segDistDone + nearestObstacle - (nearestObstacle * 0.30);
 	
 	if(dist_const_v<0){
 		dist_accel = segLength/2;
@@ -305,7 +313,8 @@ void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros:
 		pub.publish(vel_object);
 		naptime.sleep();
 	}
-
+	// reset a_max 
+	a_max = 0.5;
 	double restOfSeg = goalSegLength - segLength;
 	ROS_INFO("EXITING OAM.  REST OF SEG = %f", restOfSeg);
 	runLinear(restOfSeg, pub);
@@ -314,6 +323,25 @@ void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros:
 	
 }
 
+void ESMTurnInPlace(double segLength, double segDistDone,double direction, ros::Publisher pub) {
+	geometry_msgs::Twist vel_object;
+	ros::Rate naptime(nap);
+	vel_object.linear.x = 0.0;
+	vel_object.linear.y = 0.0;
+	vel_object.linear.z = 0.0;
+	vel_object.angular.z = 0.0;
+	while (!estop) {
+		ros::spinOnce();
+		// Publish 0
+		pub.publish(vel_object);
+		naptime.sleep();
+		ROS_INFO("ESTOP ENFORCED TURN IN PLACE");
+	}
+	
+	holdingPattern(1, pub);
+	segLength = segLength - segDistDone;
+	runInPlaceTurn(segLength, direction, pub);	
+}
 void runInPlaceTurn(double segLength, double direction, ros::Publisher pub){
 
 	geometry_msgs::Twist vel_object;
@@ -335,26 +363,10 @@ void runInPlaceTurn(double segLength, double direction, ros::Publisher pub){
 	while (ros::ok() && segDistDone<segLength) // do work here
 	{
 		ros::spinOnce();
-		while(estop == false){
-			ros::spinOnce();
-			naptime.sleep();
-			stopped=true;
-		}
-		if(stopped){
-			holdingPattern(1,pub);
-			stopped=false;
-			t=0;
-			segLength = segLength - segDistDone +0.15;
-			segDistDone=0;
-			omega_cmd = 0;
-			omega_past=0;
-			T_accel = omega_max/alpha_max;
-			dist_accel= 0.5*alpha_max*T_accel*T_accel;
-			dist_deccel = dist_accel;
-			dist_const_v = segLength - dist_accel -dist_deccel;
-			omega_scheduled=0;
-			omega_test=0;
-			temp=0;
+
+		if (estop == false) {
+			ESMTurnInPlace(segLength, segDistDone, direction, pub);
+			return;
 		}
 		
 		t=t+dt;
@@ -396,8 +408,17 @@ int main(int argc,char **argv)
 
 	holdingPattern(0.5,pub);
 
-	runLinear(5,pub);
+	runLinear(2,pub);
 	holdingPattern(0.2,pub);
+	
+	runInPlaceTurn(2.0*HALF_PI, CW, pub);
+	holdingPattern(0.2, pub);
+
+	runLinear(2, pub);
+	holdingPattern(0.2, pub);
+	
+	runInPlaceTurn(2.0*HALF_PI, CW, pub);
+	holdingPattern(0.2, pub);
 /*
 	runInPlaceTurn(HALF_PI,CW,pub);
 	holdingPattern(0.2,pub);
