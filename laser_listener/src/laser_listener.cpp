@@ -28,7 +28,7 @@ bool inDeBox(int theta, float r)
 
     if(abs(r*sin(theta*D2R))<referenceMsg.boxLength) //abs() hack for negative values ...
     {
-        if(abs(r*cos(theta*D2R))<(referenceMsg.boxWidth/2.0))
+        if(abs(r*cos(theta*D2R))<(referenceMsg.boxWidth))
         {
             cout << "front: " << r*sin(theta*D2R) << "side: " << r*cos(theta*D2R) << endl;            
             result = true;
@@ -38,13 +38,20 @@ bool inDeBox(int theta, float r)
     return result;
 }
 
+bool diff(float a, float b){
+	if(a<b-0.5 || a>b+0.05){
+		return false;
+	}
+	return true;
+}
+
 void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
 {
     objectInRange = false;
     nearestTheta = 0;
     float shortestRange = 999.999;
 
-    for(uint i = 45; i < 135; i++)
+    for(uint i = 1; i < 179; i++)
     {
       if (laserScan->ranges[i]<shortestRange)
       {
@@ -55,7 +62,7 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
       //cout << inDeBox(i, laserScan->ranges[i]);
       //cout<<(laserScan->ranges[i]<0.75); //primitive visualization of lazerz
 
-      if (inDeBox(i, laserScan->ranges[i]))
+      if (inDeBox(i, laserScan->ranges[i]) && diff(laserScan->ranges[i],laserScan->ranges[i-1]) && diff(laserScan->ranges[i],laserScan->ranges[i+1]))
       {
           objectInRange = true;
       }
@@ -82,7 +89,7 @@ int main(int argc, char **argv)
 
     ros::Rate r(HZ);
     
-    ros::Subscriber sub = n.subscribe("base_laser1_scan",1,laserCallback);
+    ros::Subscriber sub = n.subscribe("base_scan",1,laserCallback);
 
     ros::Publisher pub = n.advertise<laser_listener::obstacle>("obstructions", 10);
     
