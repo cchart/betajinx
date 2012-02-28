@@ -44,7 +44,7 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& laserScan)
     nearestTheta = 0;
     float shortestRange = 999.999;
 
-    for(uint i = 0; i < laserScan->ranges.size(); i++)
+    for(uint i = 45; i < 135; i++)
     {
       if (laserScan->ranges[i]<shortestRange)
       {
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 
     ros::Rate r(HZ);
     
-    ros::Subscriber sub = n.subscribe("base_scan",1,laserCallback);
+    ros::Subscriber sub = n.subscribe("base_laser1_scan",1,laserCallback);
 
     ros::Publisher pub = n.advertise<laser_listener::obstacle>("obstructions", 10);
     

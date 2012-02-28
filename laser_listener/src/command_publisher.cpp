@@ -6,17 +6,18 @@
 #include <laser_listener/obstacle.h>
 #include<geometry_msgs/Twist.h> //data type for velocities
 
-#define HALF_PI 1.67079633
+#define HALF_PI 1.6079633
 #define CW -1.0
-#define nap 20
-#define v_max 0.5
+#define nap 50
+#define CCW 1.0
+#define v_max 0.75
 #define omega_max 1.0
 #define alpha_max 0.5
 
-double a_max = 0.5;
+double a_max = 0.25;
 bool estop;
 bool stopped;
-double dt = 0.05;
+double dt = 0.02;
 bool obstacle;
 double nearestObstacle = 0.0;
 double segDistLeft;
@@ -28,7 +29,7 @@ void ESMTurnInPlace(double segLength, double segDistDone,double direction, ros::
 using namespace std;
 
 void poseCallback(const cwru_base::Pose::ConstPtr& pose) {
-	cout << pose->x << " | " << pose->y << endl;
+//	cout << pose->x << " | " << pose->y << endl;
 }
 
 void obstructionsCallback(const laser_listener::obstacle::ConstPtr& obs) {
@@ -37,8 +38,8 @@ void obstructionsCallback(const laser_listener::obstacle::ConstPtr& obs) {
 	}
 	else{obstacle=0;}
 */
-	if (obs->obstacle == 1) { 
-			ROS_INFO("OBSTACLE CALLBACK: DETECTED "); 
+	if (obs->obstacle && obs->nearestObstacle < segDistLeft*0.7) { 
+			ROS_INFO("OBSTACLE CALLBACK: DETECTED : %f meters | SegDistLeft: %f meters || Nearets Theta %i ",  obs->nearestObstacle, segDistLeft, obs->nearestTheta); 
 			obstacle = true; 
 			nearestObstacle = obs->nearestObstacle;
 	}
@@ -49,11 +50,11 @@ void estopCallback(const std_msgs::Bool::ConstPtr& est)
 {
 	if (est->data == true){
 		estop=true;  // means motors are ENABLED
-		ROS_INFO("Not e-stopped");
+//		ROS_INFO("Not e-stopped");
 	}
 	else if (est->data == false){
 		estop=false;  // means motors are DISABLED
-		ROS_INFO("e-stopped");
+//		ROS_INFO("e-stopped");
 	}
 }
 
@@ -129,10 +130,10 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 	/* Decel Phase */
 	else
 	{
-		ROS_INFO("DECEL PHASE HANDLING");
-		ROS_INFO("DECEL (SEGLENGTH - DISTDONE) = %f", (segLength - segDistDone));
+//		ROS_INFO("DECEL PHASE HANDLING");
+//		ROS_INFO("DECEL (SEGLENGTH - DISTDONE) = %f", (segLength - segDistDone));
 		temp = 2*(segLength-segDistDone)*accel_max;
-		ROS_INFO("DECEL TEMP: %f", temp);
+//		ROS_INFO("DECEL TEMP: %f", temp);
 		if(temp<0){
 			v_scheduled = 0.0;
 		}
@@ -140,29 +141,29 @@ geometry_msgs::Twist getVelocity(double time, double v_past, double v_cmd, doubl
 			v_scheduled = sqrt(temp);
 		}
 
-		ROS_INFO("V_SCHEDULED = %f", v_scheduled);
+//		ROS_INFO("V_SCHEDULED = %f", v_scheduled);
 	}
 
 	if (v_cmd < v_scheduled){
-		ROS_INFO("V_CMD < V_SCHEDULED");
+//		ROS_INFO("V_CMD < V_SCHEDULED");
 		v_test=v_cmd+accel_max*dt;
 		v_cmd = min(v_test,v_scheduled);
 	}
 	else if (v_cmd > v_scheduled){
-		ROS_INFO("V_CMD > V_SCHEDULED");
+//		ROS_INFO("V_CMD > V_SCHEDULED");
 		v_test = v_cmd-1.2*accel_max*dt;
 		v_cmd = max(v_test,v_scheduled);
 	}
 	else{
-		ROS_INFO("ELSE ");
+//		ROS_INFO("ELSE ");
 		v_cmd=v_scheduled;
 	}
 	if(v_cmd>velocity_max){
-		ROS_INFO ("V_CMD > VELOCITY MAX");
+//		ROS_INFO ("V_CMD > VELOCITY MAX");
 		v_cmd = velocity_max;
 	}
 
-	ROS_INFO("V-CMD == %f", v_cmd);
+//	ROS_INFO("V-CMD == %f", v_cmd);
 
 	if(segType==1){	
 		velocity_cmd.linear.x = v_cmd;
@@ -191,7 +192,7 @@ void holdingPattern(double time, ros::Publisher pub){
 		t=t+dt;	
 		vel_object.linear.x = 0.0;
 		vel_object.angular.z = 0.0;
-		ROS_INFO("standing %f %f", t, dt);
+//		ROS_INFO("standing %f %f", t, dt);
 		pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
 		
 		naptime.sleep();
@@ -213,7 +214,7 @@ void runLinear(double segLength, ros::Publisher pub){
 	double dist_const_v = segLength - dist_accel -dist_deccel;
 	double v_scheduled, v_test,temp;
 	double goalSegLength = segLength;
-	
+	segDistLeft = segLength;
 	if(dist_const_v<0){
 		dist_accel = segLength/2;
 		dist_deccel = dist_accel;
@@ -236,16 +237,18 @@ void runLinear(double segLength, ros::Publisher pub){
 
 		t=t+dt;
 		segDistDone += ((v_past+v_cmd)/2)*dt;
+		segDistLeft -= ((v_past+v_cmd)/2)*dt;
 		v_past = v_cmd;
 
 		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
 		if(vel_object.linear.y==-1){
-			ROS_INFO("We had a bad segType");
+//			ROS_INFO("We had a bad segType");
 			return;
 		}
 		v_cmd = vel_object.linear.x;		
-		ROS_INFO("NORMAL VELOCITY COMMAND");
-		ROS_INFO("linear %f %f %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength,segDistDone,t);
+		ROS_INFO("V: %f", v_cmd);
+//		ROS_INFO("NORMAL VELOCITY COMMAND");
+//		ROS_INFO("linear %f %f %f %f %f %f",vel_object.linear.x,vel_object.linear.y,vel_object.linear.z,segLength,segDistDone,t);
 		pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
 	
 		naptime.sleep(); // this will cause the loop to sleep for balance of time of desired (50ms) period
@@ -278,16 +281,16 @@ void ESM(double segLength, double segDistDone, ros::Publisher pub) {
 void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros::Publisher pub) {
 	geometry_msgs::Twist vel_object;
 	ros::Rate naptime(nap);
-	a_max = 1.0;
+	a_max = v_cmd * v_cmd / (2*nearestObstacle*.70);
 	double t=0;
-	double T_accel = v_max/a_max;
+	double T_accel = v_cmd/a_max;
 	double dist_accel= 0.5*a_max*T_accel*T_accel;
 	double dist_deccel = dist_accel;
 	double dist_const_v = segLength - dist_accel -dist_deccel;
 	double v_scheduled, v_test,temp;
 	double goalSegLength = segLength;
 	segLength = segDistDone + nearestObstacle - (nearestObstacle * 0.30);
-	
+	double localDistDone = 0.0;	
 	if(dist_const_v<0){
 		dist_accel = segLength/2;
 		dist_deccel = dist_accel;
@@ -297,26 +300,28 @@ void OAM(double segLength, double segDistDone, double v_cmd, double v_past, ros:
 		ros::spinOnce();
 		if (!estop) {
 			// completed so far
-			ESM(goalSegLength, segDistDone, pub);
+			ESM(goalSegLength-localDistDone, segDistDone, pub);
 			return;
 		}
 		t = t+dt;
+		localDistDone += ((v_past+v_cmd)/2)*dt;
 		segDistDone += ((v_past+v_cmd)/2)*dt;
+		segDistLeft += ((v_past+v_cmd)/2)*dt;
 		v_past = v_cmd;
-		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,1);
+		vel_object = getVelocity(t,v_past,v_cmd,segDistDone,segLength,4);
 		if(vel_object.linear.y==-1){
-			ROS_INFO("We had a bad segType");
+//			ROS_INFO("We had a bad segType");
 			return;
 		}
 		v_cmd = vel_object.linear.x;	
-		ROS_INFO("OBSTACLE V: %f DIST DONE: %f DIST LENGTH %f", v_cmd, segDistDone, segLength);	
+	//	ROS_INFO("OBSTACLE ACCEL: %F ||  V: %f | DIST DONE: %f | DIST LENGTH %f", a_max, v_cmd, segDistDone, segLength);	
 		pub.publish(vel_object);
 		naptime.sleep();
 	}
 	// reset a_max 
-	a_max = 0.5;
-	double restOfSeg = goalSegLength - segLength;
-	ROS_INFO("EXITING OAM.  REST OF SEG = %f", restOfSeg);
+	a_max = 0.25;
+	double restOfSeg = goalSegLength - segDistDone;
+//	ROS_INFO("EXITING OAM.  REST OF SEG = %f", restOfSeg);
 	runLinear(restOfSeg, pub);
 
 	return;
@@ -335,7 +340,7 @@ void ESMTurnInPlace(double segLength, double segDistDone,double direction, ros::
 		// Publish 0
 		pub.publish(vel_object);
 		naptime.sleep();
-		ROS_INFO("ESTOP ENFORCED TURN IN PLACE");
+//		ROS_INFO("ESTOP ENFORCED TURN IN PLACE");
 	}
 	
 	holdingPattern(1, pub);
@@ -375,13 +380,13 @@ void runInPlaceTurn(double segLength, double direction, ros::Publisher pub){
 
 		vel_object = getVelocity(t,omega_past,omega_cmd,segDistDone,segLength,2);
 		if(vel_object.linear.y==-1){
-			ROS_INFO("We had a bad segType");
+//			ROS_INFO("We had a bad segType");
 			return;
 		}
 		omega_cmd = vel_object.angular.z;
 		vel_object.angular.z*=direction;
 
-		ROS_INFO("angular %f %f %f",vel_object.angular.x,vel_object.angular.y,vel_object.angular.z);
+//		ROS_INFO("angular %f %f %f",vel_object.angular.x,vel_object.angular.y,vel_object.angular.z);
 		pub.publish(vel_object);  // this action causes the commands in vel_object to be published 
 		
 		naptime.sleep(); // this will cause the loop to sleep for balance of time of desired (50ms) period
@@ -408,9 +413,9 @@ int main(int argc,char **argv)
 
 	holdingPattern(0.5,pub);
 
-	runLinear(2,pub);
+	runLinear(4,pub);
 	holdingPattern(0.2,pub);
-	
+/*	
 	runInPlaceTurn(2.0*HALF_PI, CW, pub);
 	holdingPattern(0.2, pub);
 
@@ -419,11 +424,11 @@ int main(int argc,char **argv)
 	
 	runInPlaceTurn(2.0*HALF_PI, CW, pub);
 	holdingPattern(0.2, pub);
-/*
+*/
 	runInPlaceTurn(HALF_PI,CW,pub);
 	holdingPattern(0.2,pub);
 
-	runLinear(12.5,pub);
+	runLinear(13.0,pub);
 	holdingPattern(0.2,pub);
 
 	runInPlaceTurn(HALF_PI,CW,pub);
@@ -431,6 +436,24 @@ int main(int argc,char **argv)
 
 	runLinear(4,pub);
 	holdingPattern(0.05,pub); 
+/*
+	runInPlaceTurn(HALF_PI,CW,pub);
+	holdingPattern(0.2,pub);
+	
+	runInPlaceTurn(HALF_PI,CW,pub);
+	holdingPattern(0.2,pub);
+	
+	runLinear(4, pub);
+	holdingPattern(0.05, pub);
+
+	runInPlaceTurn(HALF_PI,CCW,pub);
+	holdingPattern(0.05, pub);
+
+	runLinear(13.5);
+	holdingPattern(0.05, pub);
+
+	runInPlaceTurn(HALF_PI, CCW, pub);
+	holdingPattern(0.05, pub);
 */
 	return 0;
 }
