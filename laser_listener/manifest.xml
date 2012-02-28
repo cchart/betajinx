@@ -1,0 +1,16 @@
+<package>
+  <description brief="laser_listener">
+
+     laser_listener
+
+  </description>
+  <author>chully</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/laser_listener</url>
+  <depend package="roscpp"/>
+  <depend package="cwru_sim_stage"/>
+
+</package>
+
+
